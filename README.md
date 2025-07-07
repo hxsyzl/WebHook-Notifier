@@ -130,7 +130,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## 效果展示
 ![alt demo](accept.png)
-![alt demo-1](push.png)
+![alt demo-1](push-tg.png)
 ## 配置 (`config.yaml`)
 
 这是所有配置的核心。以下是一个包含所有可用选项的示例：
