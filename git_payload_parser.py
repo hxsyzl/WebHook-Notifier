@@ -200,3 +200,67 @@ class GitPayloadParser:
             "commit_url": commit_url,
             "timestamp": timestamp
         }
+
+    @staticmethod
+    def parse_gogs_payload(headers: dict, payload: dict, secret: str) -> dict or None:
+        """
+        解析Gogs推送事件负载并标准化。
+        Gogs: X-Gogs-Event: push
+        """
+        # 创建case-insensitive的headers字典
+        headers_lower = {k.lower(): v for k, v in headers.items()}
+
+        # Gogs的签名验证
+        if secret:
+            signature = headers_lower.get('x-gogs-signature')
+            if not signature:
+                logging.error("Gogs密钥已配置，但请求中缺少 x-gogs-signature 头部。")
+                return None
+            
+            expected_signature = hmac.new(secret.encode('utf-8'), json.dumps(payload, separators=(',', ':')).encode('utf-8'), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected_signature):
+                logging.error("Gogs签名验证失败。")
+                return None
+
+        gogs_event = headers_lower.get('x-gogs-event')
+        if gogs_event != 'push':
+            logging.info(f"收到非推送的Gogs事件: {gogs_event}")
+            return None
+
+        if not payload.get('commits'):
+            logging.info("Gogs推送事件中没有新的提交。")
+            return None
+
+        repo_name = payload.get('repository', {}).get('full_name')
+        branch = payload.get('ref', '').replace('refs/heads/', '')
+        latest_commit = payload.get('commits')[-1] if payload.get('commits') else {}
+        commit_message = latest_commit.get('message', '').split('\n')[0] if latest_commit.get('message') else ''
+        author_name = latest_commit.get('author', {}).get('name')
+        commit_url = latest_commit.get('url')
+        timestamp = latest_commit.get('timestamp')
+
+        return {
+            "platform": "Gogs",
+            "repository_name": repo_name,
+            "branch": branch,
+            "commit_message": commit_message,
+            "author_name": author_name,
+            "commit_url": commit_url,
+            "timestamp": timestamp
+        }
+
+    @staticmethod
+    def format_notification(parsed_payload: dict) -> str:
+        """
+        格式化Git WebHook的通知消息。
+        """
+        return (
+            f"文章更新通知！\n\n"
+            f"平台: {parsed_payload['platform']}\n"
+            f"仓库: {parsed_payload['repository_name']}\n"
+            f"分支: {parsed_payload['branch']}\n"
+            f"提交信息: {parsed_payload['commit_message']}\n"
+            f"作者: {parsed_payload['author_name']}\n"
+            f"提交链接: {parsed_payload['commit_url']}\n"
+            f"时间: {parsed_payload['timestamp']}"
+        )

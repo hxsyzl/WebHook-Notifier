@@ -3,19 +3,18 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
 
-一个灵活、自托管的通知服务，用于接收来自 **GitHub / GitLab / Gitea** 的 Git 推送事件和 **RSS 订阅**更新，然后将格式化的消息分发到 **Telegram、电子邮件和 QQ** 等多个平台。
+一个灵活、自托管的通知服务，用于接收来自 **GitHub、GitLab、Gitea、Gogs** 的 Git 推送事件和 **RSS 订阅**更新，然后将格式化的消息分发到 **Telegram、电子邮件和 QQ** 等多个平台。
 
 ---
 
 ## 核心功能
 
-- **多平台 Git 支持**：原生支持来自 GitHub、GitLab 和 Gitea 的 `push` 事件 WebHook。
+- **多平台 Git 支持**：原生支持来自 GitHub、GitLab、Gitea 和 Gogs 的 `push` 事件 WebHook。
 - **全面的 RSS 监控**：
     - **定时轮询**：可配置间隔时间，自动检查 RSS 源的更新。
     - **WebHook 接入**：提供 `/webhook/rss` 端点，支持 RSS to WebHook 服务（如 rss-to-webhook.com）的实时推送。
 - **多渠道通知**：
-    - 
-    - Telegram Bot
+    - Telegram Bot (支持长消息分段发送)
     - 电子邮件 (SMTP)
     - Napcat (QQ Bot)
 - **安全可靠**：
@@ -34,7 +33,7 @@
  Git Push   |                           |   +------------------+
  (GitHub,   |                           |   |                  |
  GitLab,    +---> Git & RSS WebHook     +---> Telegram         |
- Gitea)     |        Notifier           |   |                  |
+ Gitea,Gos)     |        Notifier           |   |                  |
             |                           |   +------------------+
  RSS Update |                           |
  (Polling/  |                           |   +------------------+
@@ -159,6 +158,10 @@ gitea:
   # 在 Gitea WebHook 设置中填写的 Secret
   secret: "your_gitea_webhook_secret"
 
+gogs:
+  # 在 Gogs WebHook 设置中填写的 Secret
+  secret: "your_gogs_webhook_secret"
+
 # RSS 订阅设置
 rss:
   enabled: true
@@ -214,7 +217,7 @@ napcat:
 
 ### 1. 配置 Git WebHook
 
-在你的 GitHub/GitLab/Gitea 仓库设置中，添加一个新的 WebHook：
+在你的 GitHub/GitLab/Gitea/Gogs 仓库设置中，添加一个新的 WebHook：
 
 - **Payload URL / 目标 URL**: `http://<your-server-ip>:8000/webhook/git`
 - **Content Type / 内容类型**: `application/json` (推荐) 或 `application/x-www-form-urlencoded`
@@ -243,6 +246,8 @@ napcat:
   - 接收来自 Git 平台的 WebHook 请求。
 - `POST /webhook/rss`
   - 接收来自 RSS to WebHook 服务的请求。
+- `POST /webhook/generic`
+  - 接收通用的 WebHook 请求。
 
 ## 数据持久化
 

@@ -42,7 +42,7 @@ class NotificationDispatcher:
 
     async def send_telegram_message(self, message: str):
         """
-        向Telegram发送消息。
+        向Telegram发送消息，如果消息过长则分段发送。
         """
         if not self.config.get('telegram', {}).get('enabled'):
             logging.info("Telegram通知未启用。")
@@ -55,22 +55,59 @@ class NotificationDispatcher:
             return
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        payload = {
-            "chat_id": chat_id,
-            "text": message
-        }
+        max_length = 4000  # Telegram API限制为4096，留一些余量
 
-        try:
-            async with self._get_async_client() as client:
-                response = await client.post(url, json=payload, timeout=10)
-                response.raise_for_status()
-                logging.info(f"Telegram消息发送成功: {response.json()}")
-        except httpx.RequestError as e:
-            logging.error(f"Telegram消息发送请求失败: {e}")
-        except httpx.HTTPStatusError as e:
-            logging.error(f"Telegram消息发送HTTP错误: {e.response.status_code} - {e.response.text}")
-        except Exception as e:
-            logging.error(f"发送Telegram消息时发生未知错误: {e}")
+        async def _send_chunk(text_chunk: str):
+            """发送单个消息块。"""
+            payload = {
+                "chat_id": chat_id,
+                "text": text_chunk,
+                "parse_mode": "Markdown"
+            }
+            try:
+                async with self._get_async_client() as client:
+                    response = await client.post(url, json=payload, timeout=10)
+                    response.raise_for_status()
+                    logging.info(f"Telegram消息块发送成功。")
+            except httpx.RequestError as e:
+                logging.error(f"Telegram消息块发送请求失败: {e}")
+            except httpx.HTTPStatusError as e:
+                logging.error(f"Telegram消息块发送HTTP错误: {e.response.status_code} - {e.response.text}")
+            except Exception as e:
+                logging.error(f"发送Telegram消息块时发生未知错误: {e}")
+
+        if len(message) <= max_length:
+            # 消息长度在限制内，直接发送
+            await _send_chunk(message)
+        else:
+            # 消息过长，进行分段发送
+            logging.warning("消息过长，将进行分段发送。")
+            parts = []
+            current_part = ""
+            # 优先按换行符分割，以保持格式
+            lines = message.split('\n')
+            for line in lines:
+                # 如果当前部分加上新的一行超过了长度限制
+                if len(current_part) + len(line) + 1 > max_length:
+                    if current_part:
+                        parts.append(current_part)
+                    # 如果单行就超过了长度，需要强制分割
+                    while len(line) > max_length:
+                        parts.append(line[:max_length])
+                        line = line[max_length:]
+                    current_part = line
+                else:
+                    if current_part:
+                        current_part += "\n" + line
+                    else:
+                        current_part = line
+            
+            if current_part:
+                parts.append(current_part)
+
+            for i, part in enumerate(parts):
+                logging.info(f"正在发送消息块 {i+1}/{len(parts)}...")
+                await _send_chunk(part)
 
     def send_email(self, subject: str, body: str):
         """

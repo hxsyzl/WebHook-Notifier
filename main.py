@@ -10,16 +10,18 @@ from typing import Dict, Any
 
 from git_payload_parser import GitPayloadParser
 from rss_payload_parser import RSSPayloadParser
+from generic_payload_parser import GenericPayloadParser
 from rss_monitor import RSSMonitor
 from notification_dispatcher import NotificationDispatcher
+from generic_webhook_handler import handle_generic_webhook
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = FastAPI(
     title="WebHook Notifier",
-    description="一个用于接收Git WebHook和RSS订阅更新的HTTP服务器。",
-    version="1.1.0"
+    description="一个用于接收=WebHook和RSS订阅更新的HTTP服务器。",
+    version="1.2.0"
 )
 
 # 加载配置
@@ -50,36 +52,31 @@ async def delayed_notification_task(parsed_payload: dict):
     await asyncio.sleep(delay_seconds)
 
     # 根据平台类型格式化消息
-    if parsed_payload['platform'] == 'RSS':
+    platform = parsed_payload.get('platform', 'Unknown')
+    message = ""
+    subject = "收到新的 WebHook 通知"
+
+    if platform == 'RSS':
         message = RSSPayloadParser.format_rss_notification(parsed_payload)
+        subject = f"RSS新文章: {parsed_payload.get('article_title', '无标题')}"
+    elif platform == 'Generic':
+        message = GenericPayloadParser.format_notification(parsed_payload)
+        # For generic webhooks, the subject can be more generic or customized if needed
+        subject = "收到新的通用 WebHook 通知"
+    elif platform in ['GitHub', 'GitLab', 'Gitea', 'Gogs']:
+        message = GitPayloadParser.format_notification(parsed_payload)
+        subject = f"文章更新: {parsed_payload.get('repository_name', '未知仓库')}"
     else:
-        # Git平台的消息格式
-        message = (
-            f"文章更新通知！\n\n"
-            f"平台: {parsed_payload['platform']}\n"
-            f"仓库: {parsed_payload['repository_name']}\n"
-            f"分支: {parsed_payload['branch']}\n"
-            f"提交信息: {parsed_payload['commit_message']}\n"
-            f"作者: {parsed_payload['author_name']}\n"
-            f"提交链接: {parsed_payload['commit_url']}\n"
-            f"时间: {parsed_payload['timestamp']}"
-        )
+        logging.warning(f"未知的平台类型: {platform}")
+        return
 
     logging.info(f"正在发送通知：\n{message}")
 
-    # 发送Telegram消息
+    # 发送通知
     if CONFIG.get('telegram', {}).get('enabled'):
         await dispatcher.send_telegram_message(message)
-
-    # 发送Email
     if CONFIG.get('email', {}).get('enabled'):
-        if parsed_payload['platform'] == 'RSS':
-            subject = f"RSS新文章: {parsed_payload['article_title']}"
-        else:
-            subject = f"文章更新: {parsed_payload['repository_name']}"
         dispatcher.send_email(subject, message)
-
-    # 发送Napcat消息
     if CONFIG.get('napcat', {}).get('enabled'):
         await dispatcher.send_napcat_message(message)
 
@@ -162,6 +159,9 @@ async def handle_git_webhook(request: Request):
         elif 'x-gitea-event' in headers_lower:
             secret = CONFIG.get('gitea', {}).get('secret', '') 
             parsed_payload = GitPayloadParser.parse_gitea_payload(headers, payload, secret, body)
+        elif 'x-gogs-event' in headers_lower:
+            secret = CONFIG.get('gogs', {}).get('secret', '')
+            parsed_payload = GitPayloadParser.parse_gogs_payload(headers, payload, secret)
         else:
             logging.warning(f"无法识别的Git WebHook平台。可用headers: {list(headers_lower.keys())}")
             raise HTTPException(status_code=400, detail="无法识别的Git WebHook平台。")
@@ -182,6 +182,20 @@ async def handle_git_webhook(request: Request):
     except Exception as e:
         logging.error(f"处理Git WebHook时发生内部服务器错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {e}")
+
+
+@app.post("/webhook/generic")
+async def webhook_generic(request: Request):
+    """
+    处理通用WebHook请求。
+    """
+    parsed_payload = await handle_generic_webhook(request, CONFIG)
+    if parsed_payload:
+        asyncio.create_task(delayed_notification_task(parsed_payload))
+        return {"message": "通用 WebHook 接收成功，通知已调度。"}
+    else:
+        # The handler already raises HTTPException, but as a fallback:
+        raise HTTPException(status_code=400, detail="通用 WebHook 负载处理失败。")
 
 
 @app.post("/webhook/rss")
@@ -250,7 +264,8 @@ async def root():
         "version": "1.1.0",
         "endpoints": {
             "git_webhook": "/webhook/git",
-            "rss_webhook": "/webhook/rss"
+            "rss_webhook": "/webhook/rss",
+            "generic_webhook": "/webhook/generic"
         }
     }
 
@@ -277,4 +292,3 @@ async def shutdown_event():
     
     # 保存RSS监控状态
     rss_monitor.save_seen_articles()
-
