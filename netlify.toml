@@ -1,0 +1,14 @@
+# Netlify 配置文件
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # 由于这是一个纯静态网站，没有构建步骤，但我们需要指定发布目录。
+  # command = "echo 'No build command needed'"
+  
+  # Netlify 将会部署这个目录下的文件。
+  publish = "."
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

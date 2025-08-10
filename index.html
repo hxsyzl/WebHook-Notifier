@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通用 WebHook 发送器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>通用 WebHook 发送器</h1>
+        <p>向任何 WebHook 地址发送一个 POST 请求。</p>
+
+        <div class="form-group">
+            <label for="webhook-url">WebHook URL</label>
+            <input type="url" id="webhook-url" placeholder="https://your-webhook-url.com/path" required>
+        </div>
+
+        <div class="form-group">
+            <label for="payload">JSON Payload</label>
+            <textarea id="payload" rows="10" placeholder='{
+    "text": "项目部署成功！",
+    "username": "部署机器人",
+    "attachments": [
+        {
+            "color": "#36a64f",
+            "title": "项目名称",
+            "text": "版本 v1.2.3 已成功部署到生产环境。",
+            "fields": [
+                {
+                    "title": "环境",
+                    "value": "生产",
+                    "short": true
+                },
+                {
+                    "title": "版本",
+                    "value": "v1.2.3",
+                    "short": true
+                }
+            ]
+        }
+    ]
+}'></textarea>
+        </div>
+
+        <button id="send-btn">发送 WebHook</button>
+
+        <div class="response-container">
+            <h2>响应</h2>
+            <pre id="response"></pre>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
