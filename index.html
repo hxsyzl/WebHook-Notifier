@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通用 WebHook 发送器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>通用 WebHook 发送器</h1>
+        <form id="webhook-form">
+            <div class="form-group">
+                <label for="url">WebHook URL:</label>
+                <input type="url" id="url" name="url" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="method">HTTP 方法:</label>
+                <select id="method" name="method">
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="headers">请求头 (JSON 格式):</label>
+                <textarea id="headers" name="headers" placeholder='{"Content-Type": "application/json"}'></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="payload">Payload (JSON 格式):</label>
+                <textarea id="payload" name="payload" placeholder='{"message": "Hello, World!"}'></textarea>
+            </div>
+            
+            <button type="submit">发送 WebHook</button>
+        </form>
+        
+        <div id="response" class="response-container" style="display: none;">
+            <h2>响应结果</h2>
+            <pre id="response-content"></pre>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
