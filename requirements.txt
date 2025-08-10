@@ -1,6 +1,7 @@
 
 # Web框架和服务器
-fastapi==0.104.1uvicorn[standard]==0.24.0
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 # HTTP客户端
 httpx==0.25.2
 # 配置文件解析PyYAML==6.0.1

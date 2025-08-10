@@ -3,13 +3,14 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
 
-一个灵活、自托管的通知服务，用于接收来自 **GitHub、GitLab、Gitea、Gogs** 的 Git 推送事件和 **RSS 订阅**更新，然后将格式化的消息分发到 **Telegram、电子邮件和 QQ** 等多个平台。
+一个灵活、自托管的通知服务，用于接收来自 **GitHub、GitLab、Gitea、Gogs** 的 Git 推送事件、**Netlify** 部署状态和 **RSS 订阅**更新，然后将格式化的消息分发到 **Telegram、电子邮件和 QQ** 等多个平台。
 
 ---
 
 ## 核心功能
 
 - **多平台 Git 支持**：原生支持来自 GitHub、GitLab、Gitea 和 Gogs 的 `push` 事件 WebHook。
+- **Netlify 部署通知**：支持接收来自 Netlify 的部署状态更新 WebHook。
 - **全面的 RSS 监控**：
     - **定时轮询**：可配置间隔时间，自动检查 RSS 源的更新。
     - **WebHook 接入**：提供 `/webhook/rss` 端点，支持 RSS to WebHook 服务（如 rss-to-webhook.com）的实时推送。
@@ -162,6 +163,11 @@ gogs:
   # 在 Gogs WebHook 设置中填写的 Secret
   secret: "your_gogs_webhook_secret"
 
+# Netlify 设置
+netlify:
+  # 在 Netlify WebHook 设置中填写的 Secret
+  secret: "your_netlify_webhook_secret"
+
 # RSS 订阅设置
 rss:
   enabled: true
@@ -224,6 +230,13 @@ napcat:
 - **Secret / 密钥**: 填写你在 `config.yaml` 中为对应平台设置的 `secret`。
 - **Events / 触发事件**: 选择 `push` 或 "推送事件"。
 
+### 2. 配置 Netlify WebHook
+
+在你的 Netlify 站点设置中，配置部署通知 WebHook：
+
+- **Webhook URL**: `http://<your-server-ip>:8000/webhook/netlify`
+- **Secret / 密钥**: 填写你在 `config.yaml` 中为 Netlify 设置的 `secret`。
+
 ### 2. 配置 RSS
 
 #### 方式一：自动轮询 (推荐)
@@ -248,6 +261,8 @@ napcat:
   - 接收来自 RSS to WebHook 服务的请求。
 - `POST /webhook/generic`
   - 接收通用的 WebHook 请求。
+- `POST /webhook/netlify`
+  - 接收来自 Netlify 的部署状态更新请求。
 
 ## 数据持久化
 

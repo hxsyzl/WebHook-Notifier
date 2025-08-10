@@ -11,6 +11,7 @@ from typing import Dict, Any
 from git_payload_parser import GitPayloadParser
 from rss_payload_parser import RSSPayloadParser
 from generic_payload_parser import GenericPayloadParser
+from netlify_payload_parser import NetlifyPayloadParser
 from rss_monitor import RSSMonitor
 from notification_dispatcher import NotificationDispatcher
 from generic_webhook_handler import handle_generic_webhook
@@ -66,6 +67,9 @@ async def delayed_notification_task(parsed_payload: dict):
     elif platform in ['GitHub', 'GitLab', 'Gitea', 'Gogs']:
         message = GitPayloadParser.format_notification(parsed_payload)
         subject = f"文章更新: {parsed_payload.get('repository_name', '未知仓库')}"
+    elif platform == 'Netlify':
+        message = NetlifyPayloadParser.format_notification(parsed_payload)
+        subject = f"Netlify站点更新: {parsed_payload.get('site_name', '未知站点')}"
     else:
         logging.warning(f"未知的平台类型: {platform}")
         return
@@ -254,6 +258,62 @@ async def handle_rss_webhook(request: Request):
         raise HTTPException(status_code=500, detail=f"内部服务器错误: {e}")
 
 
+@app.post("/webhook/netlify")
+async def handle_netlify_webhook(request: Request):
+    """
+    处理来自Netlify的WebHook请求。
+    """
+    try:
+        # 获取原始请求体用于签名验证
+        body = await request.body()
+        
+        # 检查请求体是否为空
+        if not body:
+            logging.error("Netlify WebHook请求体为空。")
+            raise HTTPException(status_code=400, detail="请求体为空。")
+        
+        headers = dict(request.headers)
+        content_type = headers.get('content-type', '').lower()
+        
+        logging.info(f"收到Netlify WebHook请求体长度: {len(body)} 字节")
+        logging.info(f"Content-Type: {content_type}")
+        logging.info(f"收到Netlify WebHook请求。Headers: {list(headers.keys())}")
+        
+        # 解析JSON payload
+        try:
+            payload = json.loads(body.decode('utf-8'))
+            logging.info("Netlify WebHook解析为JSON格式")
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logging.error(f"无法解析Netlify WebHook请求体: {e}")
+            logging.error(f"请求体前100字符: {body.decode('utf-8', errors='replace')[:100]}")
+            raise HTTPException(status_code=400, detail="无法解析Netlify WebHook请求体数据。")
+
+        if not payload:
+            logging.error("Netlify WebHook解析后的payload为空")
+            raise HTTPException(status_code=400, detail="解析后的payload为空。")
+
+        # 解析Netlify webhook负载
+        secret = CONFIG.get('netlify', {}).get('secret', '')
+        parsed_payload = NetlifyPayloadParser.parse_payload(headers, payload, secret, body)
+
+        if not parsed_payload:
+            logging.warning("Netlify WebHook负载解析失败或签名验证失败。")
+            raise HTTPException(status_code=400, detail="Netlify WebHook负载解析失败或签名验证失败。")
+
+        logging.info(f"成功解析Netlify WebHook负载：{parsed_payload['site_name']} - {parsed_payload['state']}")
+
+        # 调度延迟通知任务，不阻塞主请求
+        asyncio.create_task(delayed_notification_task(parsed_payload))
+
+        return {"message": "Netlify WebHook接收成功，通知已调度。"}
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logging.error(f"处理Netlify WebHook时发生内部服务器错误: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"内部服务器错误: {e}")
+
+
 @app.get("/")
 async def root():
     """
@@ -261,11 +321,12 @@ async def root():
     """
     return {
         "message": "Git & RSS WebHook Notifier 服务正在运行",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "endpoints": {
             "git_webhook": "/webhook/git",
             "rss_webhook": "/webhook/rss",
-            "generic_webhook": "/webhook/generic"
+            "generic_webhook": "/webhook/generic",
+            "netlify_webhook": "/webhook/netlify"
         }
     }
 
