@@ -1,6 +1,6 @@
 [build]
   publish = "."
-  command = "echo 'No build command needed for static site'"
+  command = "chmod +x build.sh && ./build.sh"
 
 [[redirects]]
   from = "/*"
