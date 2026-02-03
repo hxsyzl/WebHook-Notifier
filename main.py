@@ -66,7 +66,28 @@ async def delayed_notification_task(parsed_payload: dict):
         subject = "收到新的通用 WebHook 通知"
     elif platform in ['GitHub', 'GitLab', 'Gitea', 'Gogs']:
         message = GitPayloadParser.format_notification(parsed_payload)
-        subject = f"文章更新: {parsed_payload.get('repository_name', '未知仓库')}"
+        # 根据事件类型生成不同的邮件主题
+        event_type = parsed_payload.get('event_type', 'unknown')
+        repo_name = parsed_payload.get('repository_name', '未知仓库')
+        
+        if event_type == 'push':
+            subject = f"文章更新: {repo_name}"
+        elif event_type == 'workflow_run':
+            subject = f"工作流通知: {repo_name} - {parsed_payload.get('workflow_name', 'Unknown')}"
+        elif event_type == 'pull_request':
+            subject = f"Pull Request: {repo_name} - #{parsed_payload.get('pr_number', '')}"
+        elif event_type == 'release':
+            subject = f"Release发布: {repo_name} - {parsed_payload.get('release_tag', '')}"
+        elif event_type == 'create':
+            subject = f"创建通知: {repo_name} - {parsed_payload.get('ref_type', '')}"
+        elif event_type == 'delete':
+            subject = f"删除通知: {repo_name} - {parsed_payload.get('ref_type', '')}"
+        elif event_type == 'issues':
+            subject = f"Issue通知: {repo_name} - #{parsed_payload.get('issue_number', '')}"
+        elif event_type == 'issue_comment':
+            subject = f"Issue评论: {repo_name} - #{parsed_payload.get('issue_number', '')}"
+        else:
+            subject = f"GitHub事件: {repo_name} - {event_type}"
     elif platform == 'Netlify':
         message = NetlifyPayloadParser.format_notification(parsed_payload)
         subject = f"Netlify站点更新: {parsed_payload.get('site_name', '未知站点')}"

@@ -44,8 +44,9 @@ class GitPayloadParser:
     @staticmethod
     def parse_github_payload(headers: dict, payload: dict, secret: str, raw_body: bytes = None) -> dict or None:
         """
-        解析GitHub推送事件负载并标准化。
-        GitHub: X-GitHub-Event: push [6]
+        解析GitHub WebHook事件负载并标准化。
+        支持的事件类型: push, workflow_run, pull_request, release, create, delete, issues, issue_comment
+        GitHub: X-GitHub-Event: <event_type> [6]
         """
         # 创建case-insensitive的headers字典
         headers_lower = {k.lower(): v for k, v in headers.items()}
@@ -72,31 +73,160 @@ class GitPayloadParser:
                 return None
 
         github_event = headers_lower.get('x-github-event')
-        if github_event != 'push':
-            logging.info(f"收到非推送的GitHub事件: {github_event}")
-            return None
-
-        if not payload.get('commits'):
-            logging.info("GitHub推送事件中没有新的提交。")
-            return None
-
         repo_name = payload.get('repository', {}).get('full_name')
-        branch = payload.get('ref', '').replace('refs/heads/', '')
-        latest_commit = payload.get('head_commit', {}) # [9]
-        commit_message = latest_commit.get('message', '').split('\n')[0] if latest_commit.get('message') else '' # 取第一行
-        author_name = latest_commit.get('author', {}).get('name')
-        commit_url = latest_commit.get('url')
-        timestamp = latest_commit.get('timestamp')
-
-        return {
-            "platform": "GitHub",
-            "repository_name": repo_name,
-            "branch": branch,
-            "commit_message": commit_message,
-            "author_name": author_name,
-            "commit_url": commit_url,
-            "timestamp": timestamp
-        }
+        
+        # 根据不同事件类型解析负载
+        if github_event == 'push':
+            if not payload.get('commits'):
+                logging.info("GitHub推送事件中没有新的提交。")
+                return None
+            
+            branch = payload.get('ref', '').replace('refs/heads/', '')
+            latest_commit = payload.get('head_commit', {})
+            commit_message = latest_commit.get('message', '').split('\n')[0] if latest_commit.get('message') else ''
+            author_name = latest_commit.get('author', {}).get('name')
+            commit_url = latest_commit.get('url')
+            timestamp = latest_commit.get('timestamp')
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "push",
+                "repository_name": repo_name,
+                "branch": branch,
+                "commit_message": commit_message,
+                "author_name": author_name,
+                "commit_url": commit_url,
+                "timestamp": timestamp
+            }
+        
+        elif github_event == 'workflow_run':
+            # GitHub Actions工作流运行事件
+            workflow = payload.get('workflow', {})
+            workflow_run = payload.get('workflow_run', {})
+            sender = payload.get('sender', {})
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "workflow_run",
+                "repository_name": repo_name,
+                "workflow_name": workflow.get('name', 'Unknown'),
+                "workflow_status": workflow_run.get('conclusion', workflow_run.get('status', 'Unknown')),
+                "workflow_url": workflow_run.get('html_url', ''),
+                "branch": workflow_run.get('head_branch', ''),
+                "commit_message": workflow_run.get('head_commit', {}).get('message', '').split('\n')[0] if workflow_run.get('head_commit', {}).get('message') else '',
+                "author_name": sender.get('login', ''),
+                "timestamp": workflow_run.get('created_at', '')
+            }
+        
+        elif github_event == 'pull_request':
+            # Pull Request事件
+            pr = payload.get('pull_request', {})
+            sender = payload.get('sender', {})
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "pull_request",
+                "repository_name": repo_name,
+                "pr_number": pr.get('number'),
+                "pr_title": pr.get('title', ''),
+                "pr_state": pr.get('state', ''),
+                "pr_url": pr.get('html_url', ''),
+                "branch": pr.get('head', {}).get('ref', ''),
+                "author_name": sender.get('login', ''),
+                "timestamp": pr.get('updated_at', '')
+            }
+        
+        elif github_event == 'release':
+            # Release事件
+            release = payload.get('release', {})
+            sender = payload.get('sender', {})
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "release",
+                "repository_name": repo_name,
+                "release_tag": release.get('tag_name', ''),
+                "release_name": release.get('name', ''),
+                "release_url": release.get('html_url', ''),
+                "author_name": sender.get('login', ''),
+                "timestamp": release.get('published_at', '')
+            }
+        
+        elif github_event == 'create':
+            # 创建分支/标签事件
+            ref_type = payload.get('ref_type', '')
+            ref = payload.get('ref', '')
+            sender = payload.get('sender', {})
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "create",
+                "repository_name": repo_name,
+                "ref_type": ref_type,
+                "ref": ref,
+                "branch": ref if ref_type == 'branch' else '',
+                "author_name": sender.get('login', ''),
+                "timestamp": payload.get('repository', {}).get('updated_at', '')
+            }
+        
+        elif github_event == 'delete':
+            # 删除分支/标签事件
+            ref_type = payload.get('ref_type', '')
+            ref = payload.get('ref', '')
+            sender = payload.get('sender', {})
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "delete",
+                "repository_name": repo_name,
+                "ref_type": ref_type,
+                "ref": ref,
+                "branch": ref if ref_type == 'branch' else '',
+                "author_name": sender.get('login', ''),
+                "timestamp": payload.get('repository', {}).get('updated_at', '')
+            }
+        
+        elif github_event == 'issues':
+            # Issue事件
+            issue = payload.get('issue', {})
+            sender = payload.get('sender', {})
+            action = payload.get('action', '')
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "issues",
+                "repository_name": repo_name,
+                "action": action,
+                "issue_number": issue.get('number'),
+                "issue_title": issue.get('title', ''),
+                "issue_url": issue.get('html_url', ''),
+                "author_name": sender.get('login', ''),
+                "timestamp": issue.get('updated_at', '')
+            }
+        
+        elif github_event == 'issue_comment':
+            # Issue评论事件
+            issue = payload.get('issue', {})
+            comment = payload.get('comment', {})
+            sender = payload.get('sender', {})
+            action = payload.get('action', '')
+            
+            return {
+                "platform": "GitHub",
+                "event_type": "issue_comment",
+                "repository_name": repo_name,
+                "action": action,
+                "issue_number": issue.get('number'),
+                "issue_title": issue.get('title', ''),
+                "comment_body": comment.get('body', '')[:200] + '...' if len(comment.get('body', '')) > 200 else comment.get('body', ''),
+                "comment_url": comment.get('html_url', ''),
+                "author_name": sender.get('login', ''),
+                "timestamp": comment.get('updated_at', '')
+            }
+        
+        else:
+            logging.info(f"收到未处理的GitHub事件: {github_event}")
+            return None
 
     @staticmethod
     def parse_gitlab_payload(headers: dict, payload: dict, secret: str) -> dict or None:
@@ -254,13 +384,117 @@ class GitPayloadParser:
         """
         格式化Git WebHook的通知消息。
         """
-        return (
-            f"文章更新通知！\n\n"
-            f"平台: {parsed_payload['platform']}\n"
-            f"仓库: {parsed_payload['repository_name']}\n"
-            f"分支: {parsed_payload['branch']}\n"
-            f"提交信息: {parsed_payload['commit_message']}\n"
-            f"作者: {parsed_payload['author_name']}\n"
-            f"提交链接: {parsed_payload['commit_url']}\n"
-            f"时间: {parsed_payload['timestamp']}"
-        )
+        event_type = parsed_payload.get('event_type', 'unknown')
+        platform = parsed_payload['platform']
+        repo_name = parsed_payload['repository_name']
+        
+        if event_type == 'push':
+            return (
+                f"📦 文章更新通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"分支: {parsed_payload['branch']}\n"
+                f"提交信息: {parsed_payload['commit_message']}\n"
+                f"作者: {parsed_payload['author_name']}\n"
+                f"提交链接: {parsed_payload['commit_url']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'workflow_run':
+            return (
+                f"🔄 GitHub Actions 工作流通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"工作流: {parsed_payload['workflow_name']}\n"
+                f"状态: {parsed_payload['workflow_status']}\n"
+                f"分支: {parsed_payload['branch']}\n"
+                f"提交信息: {parsed_payload['commit_message']}\n"
+                f"触发者: {parsed_payload['author_name']}\n"
+                f"详情链接: {parsed_payload['workflow_url']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'pull_request':
+            return (
+                f"🔀 Pull Request 通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"PR编号: #{parsed_payload['pr_number']}\n"
+                f"标题: {parsed_payload['pr_title']}\n"
+                f"状态: {parsed_payload['pr_state']}\n"
+                f"分支: {parsed_payload['branch']}\n"
+                f"作者: {parsed_payload['author_name']}\n"
+                f"链接: {parsed_payload['pr_url']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'release':
+            return (
+                f"🎉 Release 发布通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"标签: {parsed_payload['release_tag']}\n"
+                f"名称: {parsed_payload['release_name']}\n"
+                f"发布者: {parsed_payload['author_name']}\n"
+                f"链接: {parsed_payload['release_url']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'create':
+            return (
+                f"➕ 创建通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"类型: {parsed_payload['ref_type']}\n"
+                f"名称: {parsed_payload['ref']}\n"
+                f"操作者: {parsed_payload['author_name']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'delete':
+            return (
+                f"🗑️ 删除通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"类型: {parsed_payload['ref_type']}\n"
+                f"名称: {parsed_payload['ref']}\n"
+                f"操作者: {parsed_payload['author_name']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'issues':
+            return (
+                f"📋 Issue 通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"操作: {parsed_payload['action']}\n"
+                f"Issue编号: #{parsed_payload['issue_number']}\n"
+                f"标题: {parsed_payload['issue_title']}\n"
+                f"操作者: {parsed_payload['author_name']}\n"
+                f"链接: {parsed_payload['issue_url']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        elif event_type == 'issue_comment':
+            return (
+                f"💬 Issue 评论通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"操作: {parsed_payload['action']}\n"
+                f"Issue编号: #{parsed_payload['issue_number']}\n"
+                f"Issue标题: {parsed_payload['issue_title']}\n"
+                f"评论内容: {parsed_payload['comment_body']}\n"
+                f"评论者: {parsed_payload['author_name']}\n"
+                f"链接: {parsed_payload['comment_url']}\n"
+                f"时间: {parsed_payload['timestamp']}"
+            )
+        
+        else:
+            # 默认格式（兼容旧版本）
+            return (
+                f"📢 GitHub 事件通知！\n\n"
+                f"平台: {platform}\n"
+                f"仓库: {repo_name}\n"
+                f"事件类型: {event_type}\n"
+                f"时间: {parsed_payload.get('timestamp', '')}"
+            )
