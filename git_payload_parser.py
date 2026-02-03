@@ -141,6 +141,17 @@ class GitPayloadParser:
             release = payload.get('release', {})
             sender = payload.get('sender', {})
             
+            # 解析 assets 文件信息
+            assets = release.get('assets', [])
+            asset_info = []
+            for asset in assets:
+                asset_info.append({
+                    'name': asset.get('name', ''),
+                    'size': asset.get('size', 0),
+                    'download_url': asset.get('browser_download_url', ''),
+                    'content_type': asset.get('content_type', '')
+                })
+            
             return {
                 "platform": "GitHub",
                 "event_type": "release",
@@ -149,7 +160,8 @@ class GitPayloadParser:
                 "release_name": release.get('name', ''),
                 "release_url": release.get('html_url', ''),
                 "author_name": sender.get('login', ''),
-                "timestamp": release.get('published_at', '')
+                "timestamp": release.get('published_at', ''),
+                "assets": asset_info
             }
         
         elif github_event == 'create':
@@ -450,7 +462,7 @@ class GitPayloadParser:
             )
         
         elif event_type == 'release':
-            return (
+            message = (
                 f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
@@ -460,6 +472,18 @@ class GitPayloadParser:
                 f"链接: {parsed_payload['release_url']}\n"
                 f"时间: {parsed_payload['timestamp']}"
             )
+            
+            # 添加附件文件信息
+            assets = parsed_payload.get('assets', [])
+            if assets:
+                message += "\n\n📎 附件文件:"
+                for i, asset in enumerate(assets, 1):
+                    size_mb = asset['size'] / (1024 * 1024) if asset['size'] else 0
+                    size_str = f"{size_mb:.2f} MB" if size_mb >= 1 else f"{asset['size']} B"
+                    message += f"\n  {i}. {asset['name']} ({size_str})"
+                    message += f"\n     下载: {asset['download_url']}"
+            
+            return message
         
         elif event_type == 'create':
             return (
