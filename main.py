@@ -65,7 +65,9 @@ async def delayed_notification_task(parsed_payload: dict):
         # For generic webhooks, the subject can be more generic or customized if needed
         subject = "收到新的通用 WebHook 通知"
     elif platform in ['GitHub', 'GitLab', 'Gitea', 'Gogs']:
-        message = GitPayloadParser.format_notification(parsed_payload)
+        # 获取自定义标题配置
+        custom_titles = CONFIG.get('global', {}).get('custom_titles', {})
+        message = GitPayloadParser.format_notification(parsed_payload, custom_titles)
         # 根据事件类型生成不同的邮件主题
         event_type = parsed_payload.get('event_type', 'unknown')
         repo_name = parsed_payload.get('repository_name', '未知仓库')

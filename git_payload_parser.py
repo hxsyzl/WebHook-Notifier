@@ -380,17 +380,38 @@ class GitPayloadParser:
         }
 
     @staticmethod
-    def format_notification(parsed_payload: dict) -> str:
+    def format_notification(parsed_payload: dict, custom_titles: dict = None) -> str:
         """
         格式化Git WebHook的通知消息。
+        
+        Args:
+            parsed_payload: 解析后的payload字典
+            custom_titles: 自定义标题配置字典，包含各种事件类型的标题
         """
         event_type = parsed_payload.get('event_type', 'unknown')
         platform = parsed_payload['platform']
         repo_name = parsed_payload['repository_name']
         
+        # 默认标题
+        default_titles = {
+            'push': "📦 新提交推送通知",
+            'workflow_run': "🔄 GitHub Actions 工作流通知",
+            'pull_request': "🔀 Pull Request 通知",
+            'release': "🎉 Release 发布通知",
+            'create': "➕ 创建通知",
+            'delete': "🗑️ 删除通知",
+            'issues': "📋 Issue 通知",
+            'issue_comment': "💬 Issue 评论通知",
+            'unknown': "📢 GitHub 事件通知"
+        }
+        
+        # 使用自定义标题或默认标题
+        titles = custom_titles if custom_titles else {}
+        title = titles.get(f'{event_type}_title', default_titles.get(event_type, default_titles['unknown']))
+        
         if event_type == 'push':
             return (
-                f"📦 文章更新通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"分支: {parsed_payload['branch']}\n"
@@ -402,7 +423,7 @@ class GitPayloadParser:
         
         elif event_type == 'workflow_run':
             return (
-                f"🔄 GitHub Actions 工作流通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"工作流: {parsed_payload['workflow_name']}\n"
@@ -416,7 +437,7 @@ class GitPayloadParser:
         
         elif event_type == 'pull_request':
             return (
-                f"🔀 Pull Request 通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"PR编号: #{parsed_payload['pr_number']}\n"
@@ -430,7 +451,7 @@ class GitPayloadParser:
         
         elif event_type == 'release':
             return (
-                f"🎉 Release 发布通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"标签: {parsed_payload['release_tag']}\n"
@@ -442,7 +463,7 @@ class GitPayloadParser:
         
         elif event_type == 'create':
             return (
-                f"➕ 创建通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"类型: {parsed_payload['ref_type']}\n"
@@ -453,7 +474,7 @@ class GitPayloadParser:
         
         elif event_type == 'delete':
             return (
-                f"🗑️ 删除通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"类型: {parsed_payload['ref_type']}\n"
@@ -464,7 +485,7 @@ class GitPayloadParser:
         
         elif event_type == 'issues':
             return (
-                f"📋 Issue 通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"操作: {parsed_payload['action']}\n"
@@ -477,7 +498,7 @@ class GitPayloadParser:
         
         elif event_type == 'issue_comment':
             return (
-                f"💬 Issue 评论通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"操作: {parsed_payload['action']}\n"
@@ -492,7 +513,7 @@ class GitPayloadParser:
         else:
             # 默认格式（兼容旧版本）
             return (
-                f"📢 GitHub 事件通知！\n\n"
+                f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
                 f"事件类型: {event_type}\n"

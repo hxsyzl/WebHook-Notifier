@@ -7,6 +7,24 @@ global:
     enabled: false
     # 代理地址，例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080
     url: "http://127.0.0.1:7890"
+  # 自定义通知标题
+  # push_event_title: Git Push 事件的通知标题
+  # workflow_run_title: GitHub Actions 工作流的通知标题
+  # pull_request_title: Pull Request 的通知标题
+  # release_title: Release 发布的通知标题
+  # create_title: 创建事件的通知标题
+  # delete_title: 删除事件的通知标题
+  # issues_title: Issue 事件的通知标题
+  # issue_comment_title: Issue 评论的通知标题
+  custom_titles:
+    push_event_title: "📦 新提交推送通知"
+    workflow_run_title: "🔄 GitHub Actions 工作流通知"
+    pull_request_title: "🔀 Pull Request 通知"
+    release_title: "🎉 Release 发布通知"
+    create_title: "➕ 创建通知"
+    delete_title: "🗑️ 删除通知"
+    issues_title: "📋 Issue 通知"
+    issue_comment_title: "💬 Issue 评论通知"
 
 # Git 平台设置
 github:
