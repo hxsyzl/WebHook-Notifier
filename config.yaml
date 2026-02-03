@@ -1,0 +1,81 @@
+# 全局设置
+global:
+  # 接收到事件后，延迟多少秒再发送通知。设为 0 表示立即发送。
+  notification_delay_seconds: 5
+  # 代理设置 (适用于 Telegram, Napcat, RSS抓取)
+  proxy:
+    enabled: false
+    # 代理地址，例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080
+    url: "http://127.0.0.1:7890"
+
+# Git 平台设置
+github:
+  # 在 GitHub WebHook 设置中填写的 Secret
+  secret: "your_github_webhook_secret"
+
+gitlab:
+  # 在 GitLab WebHook 设置中填写的 Secret Token
+  secret: "your_gitlab_webhook_secret"
+
+gitea:
+  # 在 Gitea WebHook 设置中填写的 Secret
+  secret: "your_gitea_webhook_secret"
+
+gogs:
+  # 在 Gogs WebHook 设置中填写的 Secret
+  secret: "your_gogs_webhook_secret"
+
+# Netlify 设置
+netlify:
+  # 在 Netlify WebHook 设置中填写的 Secret
+  secret: "your_netlify_webhook_secret"
+
+# RSS 订阅设置
+rss:
+  enabled: true
+  # 自动检查 RSS 更新的间隔时间（分钟）
+  check_interval_minutes: 30
+  # RSS WebHook 设置
+  webhook:
+    # 用于验证 RSS to WebHook 服务请求的 Secret (可选)
+    secret: "your_rss_webhook_secret"
+  # 要监控的 RSS 源列表
+  feeds:
+    - name: "Awesome RSS"
+      url: "https://example.com/feed.xml"
+      enabled: true
+    - name: "Another Feed"
+      url: "https://another.com/rss"
+      enabled: true
+
+# 通知渠道设置
+telegram:
+  enabled: true
+  bot_token: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+  chat_id: "-1001234567890" # 或个人用户的 chat_id
+
+email:
+  enabled: false
+  smtp_server: "smtp.example.com"
+  smtp_port: 587
+  smtp_username: "user@example.com"
+  smtp_password: "your_email_password_or_app_token"
+  sender_email: "notifier@example.com"
+  recipient_emails:
+    - "recipient1@example.com"
+    - "recipient2@example.com"
+  # 如果 SMTP 端口是 465，通常需要将 use_ssl 设为 true
+  use_ssl: false
+  # 如果 SMTP 端口是 587，通常需要将 use_tls 设为 true
+  use_tls: true
+
+napcat:
+  enabled: false
+  # Napcat HTTP API 的基础 URL
+  base_url: "http://127.0.0.1:3001"
+  # 发送模式: private (私聊), group (群聊), all (两者都发)
+  send_mode: "all"
+  # 私聊 QQ 号
+  user_id: "10001"
+  # 群聊群号
+  group_id: "123456789"
