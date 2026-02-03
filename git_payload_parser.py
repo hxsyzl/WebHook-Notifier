@@ -112,6 +112,7 @@ class GitPayloadParser:
                 "workflow_name": workflow.get('name', 'Unknown'),
                 "workflow_status": workflow_run.get('conclusion', workflow_run.get('status', 'Unknown')),
                 "workflow_url": workflow_run.get('html_url', ''),
+                "artifacts_url": workflow_run.get('artifacts_url', ''),
                 "branch": workflow_run.get('head_branch', ''),
                 "commit_message": workflow_run.get('head_commit', {}).get('message', '').split('\n')[0] if workflow_run.get('head_commit', {}).get('message') else '',
                 "author_name": sender.get('login', ''),
@@ -434,7 +435,7 @@ class GitPayloadParser:
             )
         
         elif event_type == 'workflow_run':
-            return (
+            message = (
                 f"{title}\n\n"
                 f"平台: {platform}\n"
                 f"仓库: {repo_name}\n"
@@ -446,6 +447,13 @@ class GitPayloadParser:
                 f"详情链接: {parsed_payload['workflow_url']}\n"
                 f"时间: {parsed_payload['timestamp']}"
             )
+            
+            # 添加工件链接
+            artifacts_url = parsed_payload.get('artifacts_url', '')
+            if artifacts_url:
+                message += f"\n\n📦 工件链接: {artifacts_url}"
+            
+            return message
         
         elif event_type == 'pull_request':
             return (
