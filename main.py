@@ -88,8 +88,39 @@ async def delayed_notification_task(parsed_payload: dict):
             subject = f"Issue通知: {repo_name} - #{parsed_payload.get('issue_number', '')}"
         elif event_type == 'issue_comment':
             subject = f"Issue评论: {repo_name} - #{parsed_payload.get('issue_number', '')}"
+        elif event_type == 'check_suite':
+            subject = f"检查套件: {repo_name} - {parsed_payload.get('head_branch', '')}"
+        elif event_type == 'check_run':
+            subject = f"检查运行: {repo_name} - {parsed_payload.get('name', '')}"
+        elif event_type == 'fork':
+            subject = f"Fork通知: {repo_name} -> {parsed_payload.get('fork_name', '')}"
+        elif event_type == 'watch':
+            subject = f"Star通知: {repo_name} - {parsed_payload.get('action', '')}"
+        elif event_type == 'commit_comment':
+            subject = f"提交评论: {repo_name} - {parsed_payload.get('commit_id', '')}"
+        elif event_type == 'pull_request_review':
+            subject = f"PR评审: {repo_name} - #{parsed_payload.get('pr_number', '')}"
+        elif event_type == 'pull_request_review_comment':
+            subject = f"PR评审评论: {repo_name} - #{parsed_payload.get('pr_number', '')}"
+        elif event_type == 'deployment':
+            subject = f"部署通知: {repo_name} - {parsed_payload.get('environment', '')}"
+        elif event_type == 'status':
+            subject = f"状态更新: {repo_name} - {parsed_payload.get('context', '')}"
+        elif event_type == 'repository':
+            subject = f"仓库通知: {repo_name} - {parsed_payload.get('action', '')}"
+        elif event_type == 'member':
+            subject = f"成员通知: {repo_name} - {parsed_payload.get('action', '')}"
+        elif event_type == 'milestone':
+            subject = f"里程碑: {repo_name} - {parsed_payload.get('milestone_title', '')}"
+        elif event_type == 'label':
+            subject = f"标签通知: {repo_name} - {parsed_payload.get('label_name', '')}"
         else:
-            subject = f"GitHub事件: {repo_name} - {event_type}"
+            # 通用事件主题（用于未适配的事件类型）
+            action = parsed_payload.get('action', '')
+            if action:
+                subject = f"GitHub事件: {repo_name} - {event_type} ({action})"
+            else:
+                subject = f"GitHub事件: {repo_name} - {event_type}"
     elif platform == 'Netlify':
         message = NetlifyPayloadParser.format_notification(parsed_payload)
         subject = f"Netlify站点更新: {parsed_payload.get('site_name', '未知站点')}"
